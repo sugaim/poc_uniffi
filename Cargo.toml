@@ -1,0 +1,19 @@
+[workspace.package]
+version = "0.1.0"
+rust-version = "1.88.0"
+edition = "2024"
+exclude = []
+
+[workspace]
+resolver = "2"
+members = [
+  "lib/poclib",
+  "ffi/poc_ffi",
+]
+
+[workspace.dependencies]
+statrs = { version = "0.18" }
+uniffi = { version = "0.29" }
+thiserror = { version = "2.0" }
+
+poclib = { path = "lib/poclib" }

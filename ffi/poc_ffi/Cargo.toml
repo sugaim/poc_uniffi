@@ -1,0 +1,23 @@
+[package]
+name = "poc_ffi"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+exclude.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "poc_ffi"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+uniffi = { workspace = true, features = ["cli"] }
+thiserror = { workspace = true }
+
+poclib = { workspace = true }
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }

@@ -1,0 +1,68 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '1.9.10'
+}
+
+group = 'com.example'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+kotlin {
+    jvmToolchain(11)
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Kotlin standard library for interop
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.10'
+    
+    // JNA for native library loading
+    implementation 'net.java.dev.jna:jna:5.13.0'
+    implementation 'net.java.dev.jna:jna-platform:5.13.0'
+    
+    // Test dependencies
+    testImplementation 'junit:junit:4.13.2'
+}
+
+application {
+    mainClass = 'com.example.OptionsCalculator'
+}
+
+// Copy the native library to the build directory
+task copyNativeLib(type: Copy) {
+    from '../target/release'
+    include 'poc_ffi.dll'
+    into 'build/libs'
+}
+
+// Ensure native lib is copied before running
+run.dependsOn copyNativeLib
+
+// Add the native library path to JVM arguments
+run {
+    systemProperty 'java.library.path', file('build/libs').absolutePath
+    systemProperty 'jna.library.path', file('build/libs').absolutePath
+}
+
+// Configure source sets to include both Java and Kotlin
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+        kotlin {
+            srcDirs = ['src/main/kotlin']
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+}
