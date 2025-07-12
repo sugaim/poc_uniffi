@@ -720,6 +720,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -738,6 +740,8 @@ internal interface IntegrityCheckingUniffiLib : Library {
     fun uniffi_poc_ffi_checksum_func_bs_call(
 ): Short
 fun uniffi_poc_ffi_checksum_func_bs_prem(
+): Short
+fun uniffi_poc_ffi_checksum_func_sum_values(
 ): Short
 fun ffi_poc_ffi_uniffi_contract_version(
 ): Int
@@ -800,6 +804,8 @@ fun uniffi_poc_ffi_fn_func_bs_call(`spot`: Double,`strike`: Double,`vol`: Double
 ): Double
 fun uniffi_poc_ffi_fn_func_bs_prem(`model`: RustBuffer.ByValue,`strike`: Double,`rate`: Double,`time`: Double,`optionType`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Double
+fun uniffi_poc_ffi_fn_func_sum_values(`data`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Int
 fun ffi_poc_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun ffi_poc_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -930,6 +936,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_poc_ffi_checksum_func_bs_prem() != 8220.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_poc_ffi_checksum_func_sum_values() != 42375.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1073,6 +1082,29 @@ private class JavaLangRefCleanable(
     val cleanable: java.lang.ref.Cleaner.Cleanable
 ) : UniffiCleaner.Cleanable {
     override fun clean() = cleanable.clean()
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterInt: FfiConverter<Int, Int> {
+    override fun lift(value: Int): Int {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Int {
+        return buf.getInt()
+    }
+
+    override fun lower(value: Int): Int {
+        return value
+    }
+
+    override fun allocationSize(value: Int) = 4UL
+
+    override fun write(value: Int, buf: ByteBuffer) {
+        buf.putInt(value)
+    }
 }
 
 /**
@@ -1459,6 +1491,45 @@ public object FfiConverterTypeOptionType: FfiConverterRustBuffer<OptionType> {
 }
 
 
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterMapStringInt: FfiConverterRustBuffer<Map<kotlin.String, kotlin.Int>> {
+    override fun read(buf: ByteBuffer): Map<kotlin.String, kotlin.Int> {
+        val len = buf.getInt()
+        return buildMap<kotlin.String, kotlin.Int>(len) {
+            repeat(len) {
+                val k = FfiConverterString.read(buf)
+                val v = FfiConverterInt.read(buf)
+                this[k] = v
+            }
+        }
+    }
+
+    override fun allocationSize(value: Map<kotlin.String, kotlin.Int>): ULong {
+        val spaceForMapSize = 4UL
+        val spaceForChildren = value.map { (k, v) ->
+            FfiConverterString.allocationSize(k) +
+            FfiConverterInt.allocationSize(v)
+        }.sum()
+        return spaceForMapSize + spaceForChildren
+    }
+
+    override fun write(value: Map<kotlin.String, kotlin.Int>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        // The parens on `(k, v)` here ensure we're calling the right method,
+        // which is important for compatibility with older android devices.
+        // Ref https://blog.danlew.net/2017/03/16/kotlin-puzzler-whose-line-is-it-anyways/
+        value.forEach { (k, v) ->
+            FfiConverterString.write(k, buf)
+            FfiConverterInt.write(v, buf)
+        }
+    }
+}
     @Throws(Exception::class) fun `bsCall`(`spot`: kotlin.Double, `strike`: kotlin.Double, `vol`: kotlin.Double, `rate`: kotlin.Double, `time`: kotlin.Double): kotlin.Double {
             return FfiConverterDouble.lift(
     uniffiRustCallWithError(Exception) { _status ->
@@ -1474,6 +1545,16 @@ public object FfiConverterTypeOptionType: FfiConverterRustBuffer<OptionType> {
     uniffiRustCallWithError(Exception) { _status ->
     UniffiLib.INSTANCE.uniffi_poc_ffi_fn_func_bs_prem(
         FfiConverterTypeBsModel.lower(`model`),FfiConverterDouble.lower(`strike`),FfiConverterDouble.lower(`rate`),FfiConverterDouble.lower(`time`),FfiConverterTypeOptionType.lower(`optionType`),_status)
+}
+    )
+    }
+    
+
+    @Throws(Exception::class) fun `sumValues`(`data`: Map<kotlin.String, kotlin.Int>): kotlin.Int {
+            return FfiConverterInt.lift(
+    uniffiRustCallWithError(Exception) { _status ->
+    UniffiLib.INSTANCE.uniffi_poc_ffi_fn_func_sum_values(
+        FfiConverterMapStringInt.lower(`data`),_status)
 }
     )
     }

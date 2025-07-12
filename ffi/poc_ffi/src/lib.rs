@@ -44,6 +44,12 @@ pub fn bs_prem(
     }
 }
 
+#[uniffi::export]
+pub fn sum_values(data: std::collections::HashMap<String, i32>) -> Result<i32, Arc<Error>> {
+    let sum: i32 = data.into_iter().map(|(_, v)| v).sum();
+    Ok(sum)
+}
+
 fn validate(spot: f64, strike: f64, time: f64) -> Result<(), Arc<Error>> {
     if spot <= 0.0 {
         return Err(Error {

@@ -464,6 +464,8 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_poc_ffi_checksum_func_bs_prem() != 8220:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_poc_ffi_checksum_func_sum_values() != 42375:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
 
 # A ctypes library to expose the extern-C FFI definitions.
 # This is an implementation detail which will be called internally by the public API.
@@ -608,6 +610,11 @@ _UniffiLib.uniffi_poc_ffi_fn_func_bs_prem.argtypes = (
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_poc_ffi_fn_func_bs_prem.restype = ctypes.c_double
+_UniffiLib.uniffi_poc_ffi_fn_func_sum_values.argtypes = (
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_poc_ffi_fn_func_sum_values.restype = ctypes.c_int32
 _UniffiLib.ffi_poc_ffi_rustbuffer_alloc.argtypes = (
     ctypes.c_uint64,
     ctypes.POINTER(_UniffiRustCallStatus),
@@ -882,6 +889,9 @@ _UniffiLib.uniffi_poc_ffi_checksum_func_bs_call.restype = ctypes.c_uint16
 _UniffiLib.uniffi_poc_ffi_checksum_func_bs_prem.argtypes = (
 )
 _UniffiLib.uniffi_poc_ffi_checksum_func_bs_prem.restype = ctypes.c_uint16
+_UniffiLib.uniffi_poc_ffi_checksum_func_sum_values.argtypes = (
+)
+_UniffiLib.uniffi_poc_ffi_checksum_func_sum_values.restype = ctypes.c_uint16
 _UniffiLib.ffi_poc_ffi_uniffi_contract_version.argtypes = (
 )
 _UniffiLib.ffi_poc_ffi_uniffi_contract_version.restype = ctypes.c_uint32
@@ -891,6 +901,19 @@ _uniffi_check_contract_api_version(_UniffiLib)
 
 # Public interface members begin here.
 
+
+class _UniffiConverterInt32(_UniffiConverterPrimitiveInt):
+    CLASS_NAME = "i32"
+    VALUE_MIN = -2**31
+    VALUE_MAX = 2**31
+
+    @staticmethod
+    def read(buf):
+        return buf.read_i32()
+
+    @staticmethod
+    def write(value, buf):
+        buf.write_i32(value)
 
 class _UniffiConverterDouble(_UniffiConverterPrimitiveFloat):
     @staticmethod
@@ -1008,6 +1031,39 @@ class _UniffiConverterTypeOptionType(_UniffiConverterRustBuffer):
             buf.write_i32(2)
 
 
+
+
+
+class _UniffiConverterMapStringInt32(_UniffiConverterRustBuffer):
+    @classmethod
+    def check_lower(cls, items):
+        for (key, value) in items.items():
+            _UniffiConverterString.check_lower(key)
+            _UniffiConverterInt32.check_lower(value)
+
+    @classmethod
+    def write(cls, items, buf):
+        buf.write_i32(len(items))
+        for (key, value) in items.items():
+            _UniffiConverterString.write(key, buf)
+            _UniffiConverterInt32.write(value, buf)
+
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative map size")
+
+        # It would be nice to use a dict comprehension,
+        # but in Python 3.7 and before the evaluation order is not according to spec,
+        # so we we're reading the value before the key.
+        # This loop makes the order explicit: first reading the key, then the value.
+        d = {}
+        for i in range(count):
+            key = _UniffiConverterString.read(buf)
+            val = _UniffiConverterInt32.read(buf)
+            d[key] = val
+        return d
 
 # objects.
 class ErrorProtocol(typing.Protocol):
@@ -1144,12 +1200,20 @@ def bs_prem(model: "BsModel",strike: "float",rate: "float",time: "float",option_
         _UniffiConverterTypeOptionType.lower(option_type)))
 
 
+def sum_values(data: "dict[str, int]") -> "int":
+    _UniffiConverterMapStringInt32.check_lower(data)
+    
+    return _UniffiConverterInt32.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError__as_error,_UniffiLib.uniffi_poc_ffi_fn_func_sum_values,
+        _UniffiConverterMapStringInt32.lower(data)))
+
+
 __all__ = [
     "InternalError",
     "OptionType",
     "BsModel",
     "bs_call",
     "bs_prem",
+    "sum_values",
     "Error",
 ]
 

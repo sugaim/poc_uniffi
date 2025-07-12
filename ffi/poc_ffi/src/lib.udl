@@ -18,4 +18,8 @@ namespace poclib {
 
   [Throws=Error]
   f64 bs_prem(BsModel model, f64 strike, f64 rate, f64 time, OptionType option_type);
+
+  // Function to demonstrate dictionary usage with HashMap
+  [Throws=Error]
+  i32 sum_values(record<DOMString, i32> data);
 }
