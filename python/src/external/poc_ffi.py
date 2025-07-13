@@ -460,11 +460,11 @@ def _uniffi_check_contract_api_version(lib):
         raise InternalError("UniFFI contract version mismatch: try cleaning and rebuilding your project")
 
 def _uniffi_check_api_checksums(lib):
-    if lib.uniffi_poc_ffi_checksum_func_bs_call() != 10022:
+    if lib.uniffi_poc_ffi_checksum_func_bs_call() != 8250:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_poc_ffi_checksum_func_bs_prem() != 8220:
+    if lib.uniffi_poc_ffi_checksum_func_bs_prem() != 5966:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_poc_ffi_checksum_func_sum_values() != 42375:
+    if lib.uniffi_poc_ffi_checksum_func_sum_values() != 52299:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
 
 # A ctypes library to expose the extern-C FFI definitions.
@@ -572,26 +572,6 @@ class _UniffiForeignFutureStructVoid(ctypes.Structure):
     ]
 _UNIFFI_FOREIGN_FUTURE_COMPLETE_VOID = ctypes.CFUNCTYPE(None,ctypes.c_uint64,_UniffiForeignFutureStructVoid,
 )
-_UniffiLib.uniffi_poc_ffi_fn_clone_error.argtypes = (
-    ctypes.c_void_p,
-    ctypes.POINTER(_UniffiRustCallStatus),
-)
-_UniffiLib.uniffi_poc_ffi_fn_clone_error.restype = ctypes.c_void_p
-_UniffiLib.uniffi_poc_ffi_fn_free_error.argtypes = (
-    ctypes.c_void_p,
-    ctypes.POINTER(_UniffiRustCallStatus),
-)
-_UniffiLib.uniffi_poc_ffi_fn_free_error.restype = None
-_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_debug.argtypes = (
-    ctypes.c_void_p,
-    ctypes.POINTER(_UniffiRustCallStatus),
-)
-_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_debug.restype = _UniffiRustBuffer
-_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_display.argtypes = (
-    ctypes.c_void_p,
-    ctypes.POINTER(_UniffiRustCallStatus),
-)
-_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_display.restype = _UniffiRustBuffer
 _UniffiLib.uniffi_poc_ffi_fn_func_bs_call.argtypes = (
     ctypes.c_double,
     ctypes.c_double,
@@ -957,8 +937,6 @@ class _UniffiConverterString:
             return builder.finalize()
 
 
-
-
 class BsModel:
     spot: "float"
     vol: "float"
@@ -993,6 +971,56 @@ class _UniffiConverterTypeBsModel(_UniffiConverterRustBuffer):
     def write(value, buf):
         _UniffiConverterDouble.write(value.spot, buf)
         _UniffiConverterDouble.write(value.vol, buf)
+
+
+# Error
+# We want to define each variant as a nested class that's also a subclass,
+# which is tricky in Python.  To accomplish this we're going to create each
+# class separately, then manually add the child classes to the base class's
+# __dict__.  All of this happens in dummy class to avoid polluting the module
+# namespace.
+class Error(Exception):
+    pass
+
+_UniffiTempError = Error
+
+class Error:  # type: ignore
+    class Generic(_UniffiTempError):
+        def __init__(self, msg):
+            super().__init__(", ".join([
+                "msg={!r}".format(msg),
+            ]))
+            self.msg = msg
+
+        def __repr__(self):
+            return "Error.Generic({})".format(str(self))
+    _UniffiTempError.Generic = Generic # type: ignore
+
+Error = _UniffiTempError # type: ignore
+del _UniffiTempError
+
+
+class _UniffiConverterTypeError(_UniffiConverterRustBuffer):
+    @staticmethod
+    def read(buf):
+        variant = buf.read_i32()
+        if variant == 1:
+            return Error.Generic(
+                _UniffiConverterString.read(buf),
+            )
+        raise InternalError("Raw enum value doesn't match any cases")
+
+    @staticmethod
+    def check_lower(value):
+        if isinstance(value, Error.Generic):
+            _UniffiConverterString.check_lower(value.msg)
+            return
+
+    @staticmethod
+    def write(value, buf):
+        if isinstance(value, Error.Generic):
+            buf.write_i32(1)
+            _UniffiConverterString.write(value.msg, buf)
 
 
 
@@ -1066,99 +1094,6 @@ class _UniffiConverterMapStringInt32(_UniffiConverterRustBuffer):
         return d
 
 # objects.
-class ErrorProtocol(typing.Protocol):
-    pass
-# Error is a Rust-only trait - it's a wrapper around a Rust implementation.
-class Error(Exception):
-    _pointer: ctypes.c_void_p
-    
-    def __init__(self, *args, **kwargs):
-        raise ValueError("This class has no default constructor")
-
-    def __del__(self):
-        # In case of partial initialization of instances.
-        pointer = getattr(self, "_pointer", None)
-        if pointer is not None:
-            _uniffi_rust_call(_UniffiLib.uniffi_poc_ffi_fn_free_error, pointer)
-
-    def _uniffi_clone_pointer(self):
-        return _uniffi_rust_call(_UniffiLib.uniffi_poc_ffi_fn_clone_error, self._pointer)
-
-    # Used by alternative constructors or any methods which return this type.
-    @classmethod
-    def _make_instance_(cls, pointer):
-        # Lightly yucky way to bypass the usual __init__ logic
-        # and just create a new instance with the required pointer.
-        inst = cls.__new__(cls)
-        inst._pointer = pointer
-        return inst
-
-
-    def __repr__(self, ) -> "str":
-        return _UniffiConverterString.lift(
-            _uniffi_rust_call(_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_debug,self._uniffi_clone_pointer(),)
-        )
-
-
-
-
-
-    def __str__(self, ) -> "str":
-        return _UniffiConverterString.lift(
-            _uniffi_rust_call(_UniffiLib.uniffi_poc_ffi_fn_method_error_uniffi_trait_display,self._uniffi_clone_pointer(),)
-        )
-
-
-
-
-
-
-class _UniffiConverterTypeError__as_error(_UniffiConverterRustBuffer):
-    @classmethod
-    def read(cls, buf):
-        raise NotImplementedError()
-
-    @classmethod
-    def write(cls, value, buf):
-        raise NotImplementedError()
-
-    @staticmethod
-    def lift(value):
-        # Errors are always a rust buffer holding a pointer - which is a "read"
-        with value.consume_with_stream() as stream:
-            return _UniffiConverterTypeError.read(stream)
-
-    @staticmethod
-    def lower(value):
-        raise NotImplementedError()
-
-class _UniffiConverterTypeError:
-
-    @staticmethod
-    def lift(value: int):
-        return Error._make_instance_(value)
-
-    @staticmethod
-    def check_lower(value: Error):
-        if not isinstance(value, Error):
-            raise TypeError("Expected Error instance, {} found".format(type(value).__name__))
-
-    @staticmethod
-    def lower(value: ErrorProtocol):
-        if not isinstance(value, Error):
-            raise TypeError("Expected Error instance, {} found".format(type(value).__name__))
-        return value._uniffi_clone_pointer()
-
-    @classmethod
-    def read(cls, buf: _UniffiRustBuffer):
-        ptr = buf.read_u64()
-        if ptr == 0:
-            raise InternalError("Raw pointer value was null")
-        return cls.lift(ptr)
-
-    @classmethod
-    def write(cls, value: ErrorProtocol, buf: _UniffiRustBuffer):
-        buf.write_u64(cls.lower(value))
 
 # Async support
 
@@ -1173,7 +1108,7 @@ def bs_call(spot: "float",strike: "float",vol: "float",rate: "float",time: "floa
     
     _UniffiConverterDouble.check_lower(time)
     
-    return _UniffiConverterDouble.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError__as_error,_UniffiLib.uniffi_poc_ffi_fn_func_bs_call,
+    return _UniffiConverterDouble.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError,_UniffiLib.uniffi_poc_ffi_fn_func_bs_call,
         _UniffiConverterDouble.lower(spot),
         _UniffiConverterDouble.lower(strike),
         _UniffiConverterDouble.lower(vol),
@@ -1192,7 +1127,7 @@ def bs_prem(model: "BsModel",strike: "float",rate: "float",time: "float",option_
     
     _UniffiConverterTypeOptionType.check_lower(option_type)
     
-    return _UniffiConverterDouble.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError__as_error,_UniffiLib.uniffi_poc_ffi_fn_func_bs_prem,
+    return _UniffiConverterDouble.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError,_UniffiLib.uniffi_poc_ffi_fn_func_bs_prem,
         _UniffiConverterTypeBsModel.lower(model),
         _UniffiConverterDouble.lower(strike),
         _UniffiConverterDouble.lower(rate),
@@ -1203,17 +1138,17 @@ def bs_prem(model: "BsModel",strike: "float",rate: "float",time: "float",option_
 def sum_values(data: "dict[str, int]") -> "int":
     _UniffiConverterMapStringInt32.check_lower(data)
     
-    return _UniffiConverterInt32.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError__as_error,_UniffiLib.uniffi_poc_ffi_fn_func_sum_values,
+    return _UniffiConverterInt32.lift(_uniffi_rust_call_with_error(_UniffiConverterTypeError,_UniffiLib.uniffi_poc_ffi_fn_func_sum_values,
         _UniffiConverterMapStringInt32.lower(data)))
 
 
 __all__ = [
     "InternalError",
+    "Error",
     "OptionType",
     "BsModel",
     "bs_call",
     "bs_prem",
     "sum_values",
-    "Error",
 ]
 

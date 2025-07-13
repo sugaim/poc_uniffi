@@ -1,5 +1,7 @@
 package com.example;
 
+import java.util.HashMap;
+
 import uniffi.poc_ffi.BsModel;
 import uniffi.poc_ffi.OptionType;
 import uniffi.poc_ffi.Poc_ffiKt;
@@ -14,6 +16,13 @@ public class OptionsCalculator {
     @SuppressWarnings("CallToPrintStackTrace")
     public static void main(String[] args) {
         try {
+            System.out.println("=== Use map ===");
+            HashMap<String, Integer> data = new HashMap<>();
+            data.put("hoge", 42);
+            data.put("fuga", 24);
+            int sum = Poc_ffiKt.sumValues(data);
+            System.out.println("Sum of values: " + sum);
+
             System.out.println("=== Black-Scholes Options Calculator ===");
             
             // Test parameters
@@ -49,6 +58,9 @@ public class OptionsCalculator {
             // Test with different parameters
             System.out.println("\n--- Testing with different parameters ---");
             testDifferentScenarios();
+
+            System.out.println("=== raise Exception ===");
+            Poc_ffiKt.bsPrem(model, strike, rate, -1, OptionType.CALL);
             
         } catch (uniffi.poc_ffi.Exception e) {
             System.err.println("Error calculating options: " + e.getMessage());
